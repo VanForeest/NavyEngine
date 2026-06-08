@@ -1,0 +1,15 @@
+.vs/
+out/
+build/
+Debug/
+Release/
+x64/
+*.user
+*.suo
+*.db
+*.opendb
+*.exe
+*.dll
+*.pdb
+*.vcxproj
+*.filters
