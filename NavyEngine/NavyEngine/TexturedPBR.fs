@@ -14,6 +14,7 @@ uniform sampler2D texture_BaseColor1;
 uniform sampler2D texture_Normal1;
 uniform sampler2D texture_ORM1;
 
+uniform bool hasBaseColorMap;
 uniform bool hasNormalMap;
 uniform bool hasORM;
 
@@ -179,8 +180,7 @@ vec3 ComputePointLight(PointLight polight, vec3 N, vec3 V, vec3 F0, vec3 worldpo
 void main(){
 
     // Obtenemos los valores del material
-    vec3 albedo = pow(texture(texture_BaseColor1, TexUV).rgb, vec3(2.2));
-    //vec3 albedo = texture(texture_BaseColor1, TexUV).rgb;
+    vec3 albedo = hasBaseColorMap ? pow(texture(texture_BaseColor1, TexUV).rgb, vec3(2.2)) : vec3(0.5, 0.5, 0.5);
     float ao = hasORM ? texture(texture_ORM1, TexUV).r : 1.0;
     float roughness = hasORM ? texture(texture_ORM1, TexUV).g : 0.2;
     float metallic = hasORM ? texture(texture_ORM1, TexUV).b : 0.0;

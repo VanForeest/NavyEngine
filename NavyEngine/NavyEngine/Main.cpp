@@ -28,8 +28,8 @@ const unsigned int SCR_HEIGHT = 720;
 
 // camera
 Camera camera(glm::vec3(0.0f, 0.0f, 3.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-float lastX = 800.0f / 2.0;
-float lastY = 600.0 / 2.0;
+float lastX = 1280.0f / 2.0;
+float lastY = 720.0 / 2.0;
 bool firstMouse = true;
 
 // timing
@@ -40,18 +40,24 @@ int main()
 {
     InitWindow();
 
+    camera.MoveSpeed = 15.0f;
+
     // build and compile shaders
     // -------------------------
     Shader pbrShader("PBR.vs", "PBR.fs");
     Shader TexturedpbrShader("PBR.vs", "TexturedPBR.fs");
     Shader backgroundShader("SkyBox.vs", "SkyBox.fs");
+    Shader OceanShader("Ocean.vs","PBR.fs");
 
     pbrShader.use();
     pbrShader.setInt("irradianceMap", 0);
     pbrShader.setInt("prefilterMap", 1);
     pbrShader.setInt("brdfLUT", 2);
-    pbrShader.setVec3("albedo", 0.8f, 0.8f, 0.8f);
+    pbrShader.setVec3("albedo", 0.01, 0.05, 0.1);
+    pbrShader.setFloat("roughness", 0.03);
+    pbrShader.setFloat("metallic", 0.0);
     pbrShader.setFloat("ao", 1.0f);
+    pbrShader.setVec3("FF0", glm::vec3(0.02f));
 
     backgroundShader.use();
     backgroundShader.setInt("SkyBoxMap", 0);
@@ -63,17 +69,26 @@ int main()
     TexturedpbrShader.setInt("irradianceMap", 3);
     TexturedpbrShader.setInt("prefilterMap", 4);
     TexturedpbrShader.setInt("brdfLUT", 5);
+
+    OceanShader.use();
+    OceanShader.setInt("irradianceMap", 0);
+    OceanShader.setInt("prefilterMap", 1);
+    OceanShader.setInt("brdfLUT", 2);
+    OceanShader.setVec3("albedo", 0.02, 0.08, 0.12); //1) 0.01, 0.05, 0.1  2) 0.02, 0.08, 0.12 3) 0.01, 0.05, 0.09
+    OceanShader.setFloat("roughness", 0.03); //0.03 //0.12
+    OceanShader.setFloat("metallic", 0.0);
+    OceanShader.setFloat("ao", 1.0f);
+    OceanShader.setVec3("FF0", glm::vec3(0.02f));
+
+    OceanShader.setFloat("Amplitude", 1.0);
+    OceanShader.setFloat("wavelenght", 4.0);
+    OceanShader.setFloat("speed", 2.0);
     
 
     //3D model
-    Model masterreyModel("masterreyModel/masterrey.obj");
-
-    TexturedpbrShader.setBool("hasNormalMap", masterreyModel.hasNormalMap);
-    TexturedpbrShader.setBool("hasORM", masterreyModel.hasORM); 
-
-    Model PBRmodels("PBRmodels/Modelos.obj");
-    TexturedpbrShader.setBool("hasNormalMap", PBRmodels.hasNormalMap);
-    TexturedpbrShader.setBool("hasORM", PBRmodels.hasORM);
+    Model masterreyModel("Modelos3D/masterrey.obj");
+    Model OceanPlane("Modelos3D/OceanPlane3.obj");
+    
 
 
     //Lights
@@ -91,19 +106,21 @@ int main()
     float spacing = 2.5;
 
     //Get IBL maps from HDRi file
-    const std::string HDRfile = "MidSky.hdr";
+    const std::string HDRfile = "HDR/LowSky.hdr";
     GLuint envCubemap, irradianceMap, prefilterMap, brdfLUTTexture;
     GenIBLmapsFromHDR(HDRfile, envCubemap, irradianceMap, prefilterMap, brdfLUTTexture);
 
 
     //Valores estaticos
-    glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+    glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 150.0f);
     pbrShader.use();
     pbrShader.setMat4("projection", projection);
     backgroundShader.use();
     backgroundShader.setMat4("projection", projection);
     TexturedpbrShader.use();
     TexturedpbrShader.setMat4("projection", projection);
+    OceanShader.use();
+    OceanShader.setMat4("projection", projection);
 
     //Regresamos al viewport a su resolucion original
     int scrWidth, scrHeight;
@@ -154,36 +171,42 @@ int main()
         model = glm::scale(model, glm::vec3(0.5f));
         TexturedpbrShader.setMat4("model", model);
         TexturedpbrShader.setMat3("NormalMatrix", glm::transpose(glm::inverse(glm::mat3(model))));
+
+        TexturedpbrShader.setBool("hasBaseColorMap", masterreyModel.hasBaseColorMap);
+        TexturedpbrShader.setBool("hasNormalMap", masterreyModel.hasNormalMap);
+        TexturedpbrShader.setBool("hasORM", masterreyModel.hasORM);
+
         masterreyModel.Draw(TexturedpbrShader);
 
+        //USAMOS EL OCEAN SHADER
+        OceanShader.use();
+        OceanShader.setMat4("view", view);
+        OceanShader.setVec3("camPos", camera.Position);
 
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, irradianceMap);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, prefilterMap);
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, brdfLUTTexture);
+
+        //Render Ocean Plane
         model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(0.0f, 0.0f, 12.0f));
-        model = glm::scale(model, glm::vec3(0.5f));
-        TexturedpbrShader.setMat4("model", model);
-        TexturedpbrShader.setMat3("NormalMatrix", glm::transpose(glm::inverse(glm::mat3(model))));
-        PBRmodels.Draw(TexturedpbrShader);
+        model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
+        //model = glm::scale(model, glm::vec3(2.0f));
+        OceanShader.setFloat("time", currentFrame);
+        OceanShader.setMat4("model", model);
+        OceanShader.setMat3("NormalMatrix", glm::transpose(glm::inverse(glm::mat3(model))));
+
+        OceanPlane.Draw(OceanShader);
 
 
         //USAMOR EL SHADER DEL PBR SIN TEXTURA
-        pbrShader.use();
+        /*pbrShader.use();
         pbrShader.setMat4("view", view);
         pbrShader.setVec3("camPos", camera.Position);
 
         Dirlight.SendDataToShader(pbrShader, "dirlight");
-
-        /*for (unsigned int i = 0; i < 4; ++i) {
-            glm::vec3 newPos = Lights[i].Position + glm::vec3(sin(glfwGetTime() * 5.0) * 5.0, 0.0, 0.0);
-            newPos = Lights[i].Position;
-            Lights[i].SendDataIndexToShader(TestpbrShader, "polight", i);
-
-            model = glm::mat4(1.0f);
-            model = glm::translate(model, newPos);
-            model = glm::scale(model, glm::vec3(0.5f));
-            TestpbrShader.setMat4("model", model);
-            TestpbrShader.setMat3("NormalMatrix", glm::transpose(glm::inverse(glm::mat3(model))));
-            renderSphere();
-        }*/
 
         // bind pre-computed IBL data
         glActiveTexture(GL_TEXTURE0);
@@ -211,7 +234,7 @@ int main()
                 pbrShader.setMat3("NormalMatrix", glm::transpose(glm::inverse(glm::mat3(model))));
                 renderSphere();
             }
-        }
+        }*/
 
 
         //render skybox

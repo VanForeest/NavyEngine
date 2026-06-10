@@ -26,6 +26,7 @@ public:
 	std::vector<Mesh> Meshes;
 	std::string directory;
 	bool gammaCorrection;
+	bool hasBaseColorMap = false;
 	bool hasNormalMap = false;
     bool hasORM = false;
 
@@ -218,8 +219,10 @@ private:
 
 			if (Type == aiTextureType_NORMALS)
 				hasNormalMap = true;
-			else if (Type == aiTextureType_GLTF_METALLIC_ROUGHNESS)
+			if (Type == aiTextureType_GLTF_METALLIC_ROUGHNESS)
 				hasORM = true;
+			if (Type == aiTextureType_BASE_COLOR || Type == aiTextureType_DIFFUSE)
+				hasBaseColorMap = true;
 		}
 
 		return textures;
