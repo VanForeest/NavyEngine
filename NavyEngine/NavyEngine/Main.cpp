@@ -45,7 +45,7 @@ int main()
     // build and compile shaders
     // -------------------------
     Shader pbrShader("PBR.vs", "PBR.fs");
-    Shader TexturedpbrShader("PBR.vs", "TexturedPBR.fs");
+    Shader TexturedpbrShader("WindPBR.vs", "TexturedPBR.fs");
     Shader backgroundShader("SkyBox.vs", "SkyBox.fs");
     Shader OceanShader("Ocean.vs","PBR.fs");
 
@@ -88,6 +88,7 @@ int main()
     //3D model
     Model masterreyModel("Modelos3D/masterrey.obj");
     Model OceanPlane("Modelos3D/OceanPlane3.obj");
+    Model IslandModel("Modelos3D/Island_Final.glb");
     
 
 
@@ -150,6 +151,7 @@ int main()
         glm::mat4 view = camera.GetViewMatrix();
         TexturedpbrShader.setMat4("view", view);
         TexturedpbrShader.setVec3("camPos", camera.Position);
+        TexturedpbrShader.setFloat("time", currentFrame);
 
         Dirlight.SendDataToShader(TexturedpbrShader, "dirlight");
 
@@ -172,11 +174,18 @@ int main()
         TexturedpbrShader.setMat4("model", model);
         TexturedpbrShader.setMat3("NormalMatrix", glm::transpose(glm::inverse(glm::mat3(model))));
 
-        TexturedpbrShader.setBool("hasBaseColorMap", masterreyModel.hasBaseColorMap);
-        TexturedpbrShader.setBool("hasNormalMap", masterreyModel.hasNormalMap);
-        TexturedpbrShader.setBool("hasORM", masterreyModel.hasORM);
-
         masterreyModel.Draw(TexturedpbrShader);
+
+        //Render Island
+        model = glm::mat4(1.0f);
+        // Desplazamos la isla detrás del masterrey model (en el eje Z negativo). 
+        // Como masterrey está en Z = -12.0, colocar la isla en Z = -60.0 la pondrá justo a sus espaldas.
+        model = glm::translate(model, glm::vec3(0.0f, 0.0f,60.0f));
+        model = glm::scale(model, glm::vec3(1.0f));
+        TexturedpbrShader.setMat4("model", model);
+        TexturedpbrShader.setMat3("NormalMatrix", glm::transpose(glm::inverse(glm::mat3(model))));
+
+        IslandModel.Draw(TexturedpbrShader);
 
         //USAMOS EL OCEAN SHADER
         OceanShader.use();

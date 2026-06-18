@@ -52,6 +52,9 @@ vec3 getNormalFromMap(){
     vec2 st2 = dFdy(TexUV);
 
     vec3 N   = normalize(Normal);
+    // Flipping normal for backfaces so lighting works on both sides of the leaf
+    if (!gl_FrontFacing) N = -N; 
+    
     vec3 T  = normalize(Q1*st2.t - Q2*st1.t);
     vec3 B  = -normalize(cross(N, T));
     mat3 TBN = mat3(T, B, N);
@@ -179,14 +182,23 @@ vec3 ComputePointLight(PointLight polight, vec3 N, vec3 V, vec3 F0, vec3 worldpo
 
 void main(){
 
+    vec4 texColor = hasBaseColorMap ? texture(texture_BaseColor1, TexUV) : vec4(0.5, 0.5, 0.5, 1.0);
+    if(texColor.a < 0.1)
+        discard;
+
     // Obtenemos los valores del material
-    vec3 albedo = hasBaseColorMap ? pow(texture(texture_BaseColor1, TexUV).rgb, vec3(2.2)) : vec3(0.5, 0.5, 0.5);
+    vec3 albedo = pow(texColor.rgb, vec3(2.2));
     float ao = hasORM ? texture(texture_ORM1, TexUV).r : 1.0;
-    float roughness = hasORM ? texture(texture_ORM1, TexUV).g : 0.2;
+    // Cambiamos el 0.2 por 0.8. Un roughness de 0.2 hace que las texturas sin ORM (como las hojas) parezcan espejos o plástico mojado reflejando el cielo gris.
+    float roughness = hasORM ? texture(texture_ORM1, TexUV).g : 0.8; 
     float metallic = hasORM ? texture(texture_ORM1, TexUV).b : 0.0;
      
     // input lighting data
-    vec3 N = hasNormalMap ? getNormalFromMap() : Normal;      
+    vec3 N = hasNormalMap ? getNormalFromMap() : normalize(Normal);      
+    // Si no hay mapa de normales, tambien necesitamos voltear la normal en las caras traseras
+    if (!hasNormalMap && !gl_FrontFacing) {
+        N = -N;
+    }
     vec3 V = normalize(camPos - WorldPos);
     vec3 R = reflect(-V, N);
         

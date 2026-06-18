@@ -16,6 +16,7 @@ struct Vertex{
 	glm::vec2 TextureUV;
 	glm::vec3 Tangent;
 	glm::vec3 Bitangent;
+    glm::vec3 PositionTarget;
 
 	int m_BoneIDs[MAX_BONE_INFLUENCE];
 	float m_Weights[MAX_BONE_INFLUENCE];
@@ -54,21 +55,35 @@ public:
         std::string name;
         std::string number;
 
+        bool hasBaseColor = false;
+        bool hasNormal = false;
+        bool hasORM = false;
+
         for(int i = 0; i < Texturas.size(); i++){
             
             glActiveTexture(GL_TEXTURE0 + i);
             name = Texturas[i].type;
 
-            if (name == "texture_BaseColor")
+            if (name == "texture_BaseColor"){
                 number = std::to_string(basecolorNr++);
-            else if (name == "texture_Normal")
+                hasBaseColor = true;
+            }
+            else if (name == "texture_Normal"){
                 number = std::to_string(normalNr++);
-            else if (name == "texture_ORM")
+                hasNormal = true;
+            }
+            else if (name == "texture_ORM"){
                 number = std::to_string(ORMNr++);
+                hasORM = true;
+            }
 
             glUniform1i(glGetUniformLocation(shader.ID, (name + number).c_str()), i);
             glBindTexture(GL_TEXTURE_2D, Texturas[i].id);
         }
+
+        shader.setBool("hasBaseColorMap", hasBaseColor);
+        shader.setBool("hasNormalMap", hasNormal);
+        shader.setBool("hasORM", hasORM);
 
         glBindVertexArray(VAO);
         glDrawElements(GL_TRIANGLES, static_cast<unsigned int>(Indices.size()), GL_UNSIGNED_INT, 0);
@@ -117,6 +132,11 @@ private:
         // weights
         glEnableVertexAttribArray(6);
         glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, m_Weights));
+
+        // PositionTarget
+        glEnableVertexAttribArray(7);
+        glVertexAttribPointer(7, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, PositionTarget));
+
         glBindVertexArray(0);
     }
 };
