@@ -1,0 +1,104 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="Resource Files\Shaders">
+      <UniqueIdentifier>{ffea288b-cda2-488d-bd9c-1db83fc4c8c6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\Shaders\Vertex">
+      <UniqueIdentifier>{90f2e467-925f-4da5-8be6-ec61b34ae942}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\Shaders\Fragment">
+      <UniqueIdentifier>{772158d5-eb18-4101-805f-9f92cf197035}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Lights">
+      <UniqueIdentifier>{feffaef3-f937-4158-96e9-c4e50ff6abcc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\Shaders\TestShades">
+      <UniqueIdentifier>{7750e56a-bea1-4b68-9498-1dd395931008}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="stb_image.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Shader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Camera.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Mesh.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Model.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="DirectLight.h">
+      <Filter>Header Files\Lights</Filter>
+    </ClInclude>
+    <ClInclude Include="PointLight.h">
+      <Filter>Header Files\Lights</Filter>
+    </ClInclude>
+    <ClInclude Include="Utilities.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="CubeMap.vs">
+      <Filter>Resource Files\Shaders\Vertex</Filter>
+    </None>
+    <None Include="SkyBox.vs">
+      <Filter>Resource Files\Shaders\Vertex</Filter>
+    </None>
+    <None Include="PBR.vs">
+      <Filter>Resource Files\Shaders\Vertex</Filter>
+    </None>
+    <None Include="BRDF.vs">
+      <Filter>Resource Files\Shaders\Vertex</Filter>
+    </None>
+    <None Include="SkyBox.fs">
+      <Filter>Resource Files\Shaders\Fragment</Filter>
+    </None>
+    <None Include="EquiToCube.fs">
+      <Filter>Resource Files\Shaders\Fragment</Filter>
+    </None>
+    <None Include="BRDF.fs">
+      <Filter>Resource Files\Shaders\Fragment</Filter>
+    </None>
+    <None Include="Prefilter.fs">
+      <Filter>Resource Files\Shaders\Fragment</Filter>
+    </None>
+    <None Include="Irradiance.fs">
+      <Filter>Resource Files\Shaders\Fragment</Filter>
+    </None>
+    <None Include="PBR.fs">
+      <Filter>Resource Files\Shaders\Fragment</Filter>
+    </None>
+    <None Include="TestPBR.fs">
+      <Filter>Resource Files\Shaders\TestShades</Filter>
+    </None>
+    <None Include="OriginalPBR.fs">
+      <Filter>Resource Files\Shaders\TestShades</Filter>
+    </None>
+    <None Include="TexturedPBR.fs">
+      <Filter>Resource Files\Shaders\Fragment</Filter>
+    </None>
+  </ItemGroup>
+</Project>
