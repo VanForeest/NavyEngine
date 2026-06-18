@@ -6,7 +6,6 @@ in vec3 WorldPos;
 in vec3 Normal;
 in vec2 TexUV;
 
-
 #define NR_MAX_LIGHTS 4
 
 // Propiedades del material
@@ -231,7 +230,7 @@ void main(){
     vec3 specular = prefilteredColor * (F * brdf.x + brdf.y);
 
     vec3 ambient = (kD * diffuse + specular) * ao;
-    
+
     vec3 color = ambient + Lo;
 
     // HDR tonemapping

@@ -93,7 +93,8 @@ int main()
 
 
     //Lights
-    DirectLight Dirlight(glm::vec3(0.0f), glm::vec3(0.0f, -1.0f, 3.0f));
+    // El vector Direction original
+    DirectLight Dirlight(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 3.0f));
 
     PointLight light1(glm::vec3(100.0f), glm::vec3(-10.0f, 10.0f, 10.0f), 10.0f);
     PointLight light2(glm::vec3(150.0f), glm::vec3(10.0f, 10.0f, 10.0f), 15.0f);
@@ -139,7 +140,9 @@ int main()
         //input
         processInput(window);
 
-        //render
+        // 2. Render de la escena de manera normal
+        glfwGetFramebufferSize(window, &scrWidth, &scrHeight);
+        glViewport(0, 0, scrWidth, scrHeight);
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
  
