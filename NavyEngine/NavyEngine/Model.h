@@ -17,7 +17,7 @@
 #include <vector>
 #include <map>
 
-GLuint TextureFromFile(const std::string& Path, const std::string& directory, bool gamma = false);
+GLuint TextureFromFile(const std::string& Path, const std::string& directory, const aiScene* scene, bool gamma = false);
 
 class Model{
 public:
@@ -56,31 +56,42 @@ private:
 
 		directory = Path.substr(0, Path.find_last_of('/'));
 		
-		processNode(scene->mRootNode, scene);
+		processNode(scene->mRootNode, scene, glm::mat4(1.0f));
 	}
 
-	void processNode(aiNode* node, const aiScene* scene){
+	void processNode(aiNode* node, const aiScene* scene, glm::mat4 parentTransform){
 	
+        aiMatrix4x4 aiMat = node->mTransformation;
+        glm::mat4 localTransform(
+            aiMat.a1, aiMat.b1, aiMat.c1, aiMat.d1,
+            aiMat.a2, aiMat.b2, aiMat.c2, aiMat.d2,
+            aiMat.a3, aiMat.b3, aiMat.c3, aiMat.d3,
+            aiMat.a4, aiMat.b4, aiMat.c4, aiMat.d4
+        );
+        glm::mat4 globalTransform = parentTransform * localTransform;
+
 		unsigned int i;
 		aiMesh* mesh;
 
 		for (i = 0; i < node->mNumMeshes; i++){
 			
 			mesh = scene->mMeshes[node->mMeshes[i]];
-			Meshes.push_back(processMesh(mesh, scene));
+			Meshes.push_back(processMesh(mesh, scene, globalTransform));
 		}
 
 		for (i = 0; i < node->mNumChildren; i++)
-			processNode(node->mChildren[i], scene);
+			processNode(node->mChildren[i], scene, globalTransform);
 	
 	}
 
 
-	Mesh processMesh(aiMesh* mesh, const aiScene* scene){
+	Mesh processMesh(aiMesh* mesh, const aiScene* scene, glm::mat4 transform){
 		
 		std::vector<Vertex> vertices;
 		std::vector<GLuint> indices;
 		std::vector<Texture> textures;
+
+        glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(transform)));
 
 		Vertex vertex;
 		glm::vec3 vector; //Vector usado para asimilar las propiedades del vertice
@@ -94,7 +105,7 @@ private:
 			vector.x = mesh->mVertices[i].x;
 			vector.y = mesh->mVertices[i].y;
 			vector.z = mesh->mVertices[i].z;
-			vertex.Position = vector;
+			vertex.Position = glm::vec3(transform * glm::vec4(vector, 1.0f));
 
 			//Normales
 			if(mesh->HasNormals()){
@@ -102,7 +113,7 @@ private:
 				vector.x = mesh->mNormals[i].x;
 				vector.y = mesh->mNormals[i].y;
 				vector.z = mesh->mNormals[i].z;
-				vertex.Normal = vector;
+				vertex.Normal = glm::normalize(normalMatrix * vector);
 			}
 
 			//TextureUV
@@ -118,13 +129,13 @@ private:
 				vector.x = mesh->mTangents[i].x;
 				vector.y = mesh->mTangents[i].y;
 				vector.z = mesh->mTangents[i].z;
-				vertex.Tangent = vector;
+				vertex.Tangent = glm::normalize(normalMatrix * vector);
 
 				//Bitangent
 				vector.x = mesh->mBitangents[i].x;
 				vector.y = mesh->mBitangents[i].y;
 				vector.z = mesh->mBitangents[i].z;
-				vertex.Bitangent = vector;
+				vertex.Bitangent = glm::normalize(normalMatrix * vector);
 
 			}else{
 				vertex.TextureUV = glm::vec2(0.0f);
@@ -146,16 +157,16 @@ private:
 		//Materiales PBR: BaseColor-Albedo // NormalMap // RoughnessMap // MetallicMap // AOmap
 
 		//1. BaseColor-Albedo
-		std::vector<Texture> BaseColorMaps = LoadMaterialTextures(material, aiTextureType_BASE_COLOR, "texture_BaseColor");
+		std::vector<Texture> BaseColorMaps = LoadMaterialTextures(material, aiTextureType_BASE_COLOR, "texture_BaseColor", scene);
 		if(BaseColorMaps.empty()){
-			BaseColorMaps = LoadMaterialTextures(material, aiTextureType_DIFFUSE, "texture_BaseColor");
+			BaseColorMaps = LoadMaterialTextures(material, aiTextureType_DIFFUSE, "texture_BaseColor", scene);
 		}
 		textures.insert(textures.end(), BaseColorMaps.begin(), BaseColorMaps.end());
 
 		//2. NormalMap
-		std::vector<Texture> NormalMaps = LoadMaterialTextures(material, aiTextureType_NORMALS, "texture_Normal");
+		std::vector<Texture> NormalMaps = LoadMaterialTextures(material, aiTextureType_NORMALS, "texture_Normal", scene);
 		if(NormalMaps.empty()){
-			NormalMaps = LoadMaterialTextures(material, aiTextureType_HEIGHT, "texture_Normal");
+			NormalMaps = LoadMaterialTextures(material, aiTextureType_HEIGHT, "texture_Normal", scene);
 		}
 		textures.insert(textures.end(), NormalMaps.begin(), NormalMaps.end());
 
@@ -163,7 +174,7 @@ private:
 		//R, esta gente de verdad no se decide (U n U)
 
 		//3.Estandar ORM (O(AmbientOclusion)-> R;  R(Roghness)-> G; M(Metallic)-> B)
-		std::vector<Texture> ORM_Maps = LoadMaterialTextures(material, aiTextureType_GLTF_METALLIC_ROUGHNESS, "texture_ORM");
+		std::vector<Texture> ORM_Maps = LoadMaterialTextures(material, aiTextureType_GLTF_METALLIC_ROUGHNESS, "texture_ORM", scene);
 		textures.insert(textures.end(), ORM_Maps.begin(), ORM_Maps.end());
 
 
@@ -186,7 +197,7 @@ private:
 		return Mesh(vertices, indices, textures);
 	}
 
-	std::vector<Texture> LoadMaterialTextures(aiMaterial* Mat, aiTextureType Type, const std::string& typeName){
+	std::vector<Texture> LoadMaterialTextures(aiMaterial* Mat, aiTextureType Type, const std::string& typeName, const aiScene* scene){
 
 		std::vector<Texture> textures;
 
@@ -210,7 +221,7 @@ private:
 			if(!skip){
 			
 				Texture texture;
-				texture.id = TextureFromFile(str.C_Str(), this->directory);
+				texture.id = TextureFromFile(str.C_Str(), this->directory, scene);
 				texture.type = typeName;
 				texture.path = str.C_Str();
 				textures.push_back(texture);
@@ -229,16 +240,43 @@ private:
 	}
 };
 
-GLuint TextureFromFile(const std::string& Path, const std::string& directory, bool gamma){
+GLuint TextureFromFile(const std::string& Path, const std::string& directory, const aiScene* scene, bool gamma){
 	
-	std::string filename = directory + '/' + Path;
-
 	GLuint TextureID;
 	glGenTextures(1, &TextureID);
 
 	int width, height, nrComponents;
 	stbi_set_flip_vertically_on_load(true);
-	unsigned char* data = stbi_load(filename.c_str(), &width, &height, &nrComponents, 0);
+	unsigned char* data = nullptr;
+	bool isUncompressed = false;
+
+	const aiTexture* embeddedTexture = scene->GetEmbeddedTexture(Path.c_str());
+
+	if (embeddedTexture) {
+		if (embeddedTexture->mHeight == 0) {
+			data = stbi_load_from_memory(reinterpret_cast<unsigned char*>(embeddedTexture->pcData), embeddedTexture->mWidth, &width, &height, &nrComponents, 0);
+		} else {
+			isUncompressed = true;
+			width = embeddedTexture->mWidth;
+			height = embeddedTexture->mHeight;
+			nrComponents = 4; 
+			int dataSize = width * height * 4;
+			data = (unsigned char*)malloc(dataSize);
+			unsigned char* src = reinterpret_cast<unsigned char*>(embeddedTexture->pcData);
+			for(int i=0; i < dataSize; i+=4) {
+				data[i] = src[i+2];   // R
+				data[i+1] = src[i+1]; // G
+				data[i+2] = src[i];   // B
+				data[i+3] = src[i+3]; // A
+			}
+		}
+	} else {
+		std::string filename = directory + '/' + Path;
+		data = stbi_load(filename.c_str(), &width, &height, &nrComponents, 0);
+		if(!data){		
+			std::cout << "ERROR::FAILED_TO_LOAD_TEXTURE::" << filename << std::endl;
+		}
+	}
 
 	if(data){
 	
@@ -249,6 +287,9 @@ GLuint TextureFromFile(const std::string& Path, const std::string& directory, bo
 		else if (nrComponents == 4)
 			format = GL_RGBA;
 
+		// Critical fix for Access Violation (0xc0000005)
+		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
@@ -258,13 +299,13 @@ GLuint TextureFromFile(const std::string& Path, const std::string& directory, bo
 		glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
 		glGenerateMipmap(GL_TEXTURE_2D);
 
-		
-		
-	}else{		
-		std::cout << "ERROR::FAILED_TO_LOAD_TEXTURE::" << filename << std::endl;
 	}
 
-	stbi_image_free(data);
+	if (data) {
+		if (isUncompressed) free(data);
+		else stbi_image_free(data);
+	}
+
 	return TextureID;
 
 }
