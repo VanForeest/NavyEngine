@@ -27,7 +27,9 @@ const unsigned int SCR_WIDTH = 1280;
 const unsigned int SCR_HEIGHT = 720;
 
 // camera
-Camera camera(glm::vec3(0.0f, 0.0f, 3.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+// Situamos la cámara más cerca de la isla (Z = -45.0f) y a una altura adecuada (Y = 3.0f) 
+// para asegurar que inicies sobre el terreno, cerca de las palmeras.
+Camera camera(glm::vec3(0.0f, 3.0f, -45.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 float lastX = 1280.0f / 2.0;
 float lastY = 720.0 / 2.0;
 bool firstMouse = true;

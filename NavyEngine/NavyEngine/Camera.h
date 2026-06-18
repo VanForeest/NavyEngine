@@ -54,19 +54,21 @@ public:
 
 		float velocity = MoveSpeed * deltatime;
 
-		if (direction == FRONT)
-			Position += Front * velocity;
-		if (direction == BACK)
-			Position -= Front * velocity;
-		if (direction == RIGHT)
-			Position += Right * velocity;
-		if (direction == LEFT)
-			Position -= Right * velocity;
-		if (direction == UP)
-			Position += Up * velocity;
-		if (direction == DOWN)
-			Position -= Up * velocity;
+		// Calculamos vectores de movimiento estrictamente horizontales
+		// para evitar que la cámara "vuele" al mirar hacia arriba o abajo
+		glm::vec3 flatFront = glm::normalize(glm::vec3(Front.x, 0.0f, Front.z));
+		glm::vec3 flatRight = glm::normalize(glm::vec3(Right.x, 0.0f, Right.z));
 
+		if (direction == FRONT)
+			Position += flatFront * velocity;
+		if (direction == BACK)
+			Position -= flatFront * velocity;
+		if (direction == RIGHT)
+			Position += flatRight * velocity;
+		if (direction == LEFT)
+			Position -= flatRight * velocity;
+			
+		// Se deshabilitan los movimientos UP y DOWN para anclar al usuario al suelo
 	}
 
 	void HandleMouseMovement(float Xoffset, float Yoffset) {
