@@ -68,13 +68,13 @@ void main(){
 		float c = cos(theta);
 		float s = sin(theta);
 
-		Final_X += Q[i] * Amplitud[i] * Direction[i].x * c;
-		Final_Y += Q[i] * Amplitud[i] * s;
-		Final_Z += Q[i] * Amplitud[i] * Direction[i].y * c;
+		Final_X += Q[i] * Amplitud[i] * Direction[i].x * s;
+		Final_Y += Q[i] * Amplitud[i] * c;
+		Final_Z += Q[i] * Amplitud[i] * Direction[i].y * s;
 
-		float commonDx = -Q[i] * Amplitud[i] * K * Direction[i].x * s;
-		float commonDy = Amplitud[i] * K * c;
-		float commonDz = -Q[i] * Amplitud[i] * K * Direction[i].y * s;
+		float commonDx = Q[i] * Amplitud[i] * K * Direction[i].x * c;
+		float commonDy = -Amplitud[i] * K * s;
+		float commonDz = Q[i] * Amplitud[i] * K * Direction[i].y * c;
 
 		//Para normal X
 		Dx = commonDx * Direction[i].x;

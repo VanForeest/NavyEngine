@@ -1,16 +1,31 @@
+# Visual Studio / Directorios de Compilación
 .vs/
-out/
-build/
 Debug/
 Release/
 x64/
+x86/
+build/
+bld/
+[Oo]bj/
+[Oo]ut/
+
+# Archivos temporales y de caché
 *.user
 *.suo
 *.db
 *.opendb
-*.exe
-*.dll
+*.VC.db
 *.pdb
+*.idb
+*.ilk
+*.tlog/
+*.log
+*.iobj
+*.ipdb
+*.ipch
+*.glb
 *.vcxproj
 *.filters
-*.glb
+
+# Binarios generados
+*.exe
