@@ -39,11 +39,16 @@ void StopBackgroundMusic();
 void StartOceanWaves();
 void StopOceanWaves();
 void StartForestAmbience();
+struct AudioLoopData {
+    bool active = false;
+    float lengthSecs = 0.0f;
+    float lastPlayTime = 0.0f;
+};
+
 void StopForestAmbience();
 void StopAllAudio();
-void UpdateAudioLoops();
-bool PlayLoopingAudio(const std::string& alias, const std::string& relativePath, const std::string& displayName);
-bool IsAudioStopped(const std::string& alias);
+void UpdateAudioLoops(float currentTime);
+void PlayLoopingAudio(const std::string& alias, const std::string& relativePath, const std::string& displayName, AudioLoopData& data);
 void PrintMciError(MCIERROR errorCode, const std::string& displayName);
 
 unsigned int LoadTexture(const char* path);
@@ -72,9 +77,9 @@ bool firstMouse = true;
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 AppScreen currentScreen = AppScreen::Menu;
-bool backgroundMusicActive = false;
-bool oceanWavesActive = false;
-bool forestAmbienceActive = false;
+AudioLoopData bgMusicData;
+AudioLoopData oceanWavesData;
+AudioLoopData forestAmbienceData;
 
 int main()
 {
@@ -186,7 +191,7 @@ int main()
         float currentFrame = static_cast<float>(glfwGetTime());
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
-        UpdateAudioLoops();
+        UpdateAudioLoops(currentFrame);
 
         //input
         processInput(window);
@@ -414,6 +419,7 @@ void InitWindow() {
         std::exit(EXIT_FAILURE);
     }
     glfwMakeContextCurrent(window);
+    glfwSwapInterval(1); // Habilitar VSync para limitar los FPS y evitar stuttering en Release
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
     glfwSetCursorPosCallback(window, mouse_callback);
     glfwSetScrollCallback(window, scroll_callback);
@@ -465,36 +471,36 @@ void ConfigureWorkingDirectory()
 
 void StartBackgroundMusic()
 {
-    backgroundMusicActive = PlayLoopingAudio("backgroundMusic", "Audio/ocean_theme.wav", "musica de fondo");
+    PlayLoopingAudio("backgroundMusic", "Audio/ocean_theme.wav", "musica de fondo", bgMusicData);
 }
 
 void StopBackgroundMusic()
 {
-    backgroundMusicActive = false;
+    bgMusicData.active = false;
     mciSendStringA("stop backgroundMusic", NULL, 0, NULL);
     mciSendStringA("close backgroundMusic", NULL, 0, NULL);
 }
 
 void StartOceanWaves()
 {
-    oceanWavesActive = PlayLoopingAudio("oceanWaves", "Audio/ocean_waves.wav", "sonido del mar");
+    PlayLoopingAudio("oceanWaves", "Audio/ocean_waves.wav", "sonido del mar", oceanWavesData);
 }
 
 void StopOceanWaves()
 {
-    oceanWavesActive = false;
+    oceanWavesData.active = false;
     mciSendStringA("stop oceanWaves", NULL, 0, NULL);
     mciSendStringA("close oceanWaves", NULL, 0, NULL);
 }
 
 void StartForestAmbience()
 {
-    forestAmbienceActive = PlayLoopingAudio("forestAmbience", "Audio/forest_wind_birds.wav", "ambiente de viento y aves");
+    PlayLoopingAudio("forestAmbience", "Audio/forest_wind_birds.wav", "ambiente de viento y aves", forestAmbienceData);
 }
 
 void StopForestAmbience()
 {
-    forestAmbienceActive = false;
+    forestAmbienceData.active = false;
     mciSendStringA("stop forestAmbience", NULL, 0, NULL);
     mciSendStringA("close forestAmbience", NULL, 0, NULL);
 }
@@ -506,25 +512,31 @@ void StopAllAudio()
     StopBackgroundMusic();
 }
 
-void UpdateAudioLoops()
+void UpdateAudioLoops(float currentTime)
 {
-    if (backgroundMusicActive && IsAudioStopped("backgroundMusic"))
+    if (bgMusicData.active && (currentTime - bgMusicData.lastPlayTime >= bgMusicData.lengthSecs)) {
         mciSendStringA("play backgroundMusic from 0", NULL, 0, NULL);
+        bgMusicData.lastPlayTime = currentTime;
+    }
 
-    if (oceanWavesActive && IsAudioStopped("oceanWaves"))
+    if (oceanWavesData.active && (currentTime - oceanWavesData.lastPlayTime >= oceanWavesData.lengthSecs)) {
         mciSendStringA("play oceanWaves from 0", NULL, 0, NULL);
+        oceanWavesData.lastPlayTime = currentTime;
+    }
 
-    if (forestAmbienceActive && IsAudioStopped("forestAmbience"))
+    if (forestAmbienceData.active && (currentTime - forestAmbienceData.lastPlayTime >= forestAmbienceData.lengthSecs)) {
         mciSendStringA("play forestAmbience from 0", NULL, 0, NULL);
+        forestAmbienceData.lastPlayTime = currentTime;
+    }
 }
 
-bool PlayLoopingAudio(const std::string& alias, const std::string& relativePath, const std::string& displayName)
+void PlayLoopingAudio(const std::string& alias, const std::string& relativePath, const std::string& displayName, AudioLoopData& data)
 {
     namespace fs = std::filesystem;
 
     if (!fs::exists(relativePath)) {
         std::cout << "No se encontro " << displayName << ": " << relativePath << std::endl;
-        return false;
+        return;
     }
 
     const std::string closeCommand = "close " + alias;
@@ -535,27 +547,28 @@ bool PlayLoopingAudio(const std::string& alias, const std::string& relativePath,
     MCIERROR errorCode = mciSendStringA(openCommand.c_str(), NULL, 0, NULL);
     if (errorCode != 0) {
         PrintMciError(errorCode, displayName);
-        return false;
+        return;
     }
+
+    // Obtener la longitud del audio una sola vez sin trabar el sistema
+    char lengthBuf[128] = { 0 };
+    const std::string lengthCommand = "status " + alias + " length";
+    mciSendStringA(lengthCommand.c_str(), lengthBuf, sizeof(lengthBuf), NULL);
+    
+    data.lengthSecs = std::atof(lengthBuf) / 1000.0f;
+    data.lastPlayTime = static_cast<float>(glfwGetTime());
+    data.active = true;
 
     const std::string playCommand = "play " + alias + " from 0";
     errorCode = mciSendStringA(playCommand.c_str(), NULL, 0, NULL);
     if (errorCode != 0) {
         PrintMciError(errorCode, displayName);
         mciSendStringA(closeCommand.c_str(), NULL, 0, NULL);
-        return false;
+        return;
     }
-
-    return true;
 }
 
-bool IsAudioStopped(const std::string& alias)
-{
-    char status[32] = {};
-    const std::string statusCommand = "status " + alias + " mode";
-    MCIERROR errorCode = mciSendStringA(statusCommand.c_str(), status, sizeof(status), NULL);
-    return errorCode == 0 && std::string(status) == "stopped";
-}
+
 
 void PrintMciError(MCIERROR errorCode, const std::string& displayName)
 {
