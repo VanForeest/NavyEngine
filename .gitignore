@@ -23,9 +23,15 @@ bld/
 *.iobj
 *.ipdb
 *.ipch
-*.glb
 *.vcxproj
 *.filters
 
-# Binarios generados
+# Modelos 3D y Recursos Pesados
+*.glb
+*.obj
+*.mtl
+
+# Binarios generados y Distribución
 *.exe
+*.zip
+RecorridoVirtual_Windows_x64/

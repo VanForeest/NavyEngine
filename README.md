@@ -1,33 +1,72 @@
-# NavyEngine
+<div align="center">
+  <h1>🏝️ NavyEngine: Recorrido Virtual Interactivo</h1>
+  <p><strong>Un motor gráfico C++ personalizado construido desde cero con OpenGL para simular paisajes hiperrealistas.</strong></p>
+</div>
 
-**Simulation of a Virtual Marine Environment with OpenGL**
+---
 
-NavyEngine is an immersive 3D application that recreates a sea and an island using real-time computer graphics.
+## 📖 Sobre el Proyecto
+**NavyEngine** es una aplicación gráfica avanzada desarrollada en C++ que proporciona un entorno inmersivo en primera persona. El usuario puede caminar y explorar la costa de una isla detallada mientras observa un océano simulado físicamente. El objetivo principal de este proyecto es demostrar la capacidad de integración de matemáticas complejas (FFT), físicas de renderizado (PBR) y gestión de recursos multimedia en OpenGL puro, sin depender de motores comerciales como Unity o Unreal.
 
-## Authors
-* Carlos Alfaro
-* Engel Gomez
-* Jairo Flores
+## 🌟 Características Principales
 
-## Technologies Used
-* C++
-* OpenGL
-* Blender
+* 🌊 **Simulación Realista de Océano (FFT):** El agua no es una textura plana; se genera en tiempo real evaluando el Espectro de JONSWAP y la Transformada Rápida de Fourier mediante **Compute Shaders** de OpenGL 4.3+, simulando físicas de olas auténticas.
+* 🏝️ **Renderizado Basado en Físicas (PBR & IBL):** Modelos 3D de alta calidad iluminados mediante un mapa ambiental (Skybox) e Image-Based Lighting, asegurando que materiales como la arena y la piedra reaccionen a la luz de forma fotorrealista.
+* 🚶 **Cámara "Walking Simulator":** Sistema de control inmersivo en primera persona (FPS) restringido al plano horizontal y contenido por un sistema de *Bounding Box* (Caja de colisión) invisible para evitar salir de los límites de la isla.
+* 🎵 **Audio Ambiental Inmersivo:** Motor de sonido multihilo integrado nativamente que reproduce bucles de olas y brisa para maximizar la inmersión.
+* 🖥️ **Interfaz de Usuario (UI) Nativa:** Menú principal e interactivo renderizado totalmente mediante quads texturizados sobre el framebuffer principal.
 
-## Features
+## 🛠️ Tecnologías y Librerías Utilizadas
+* **C++17** - Lenguaje principal.
+* **OpenGL 4.3+** - API gráfica (esencial para los Compute Shaders del océano).
+* **GLFW / GLEW** - Gestión de ventanas, eventos de hardware y extensiones GL.
+* **GLM (OpenGL Mathematics)** - Cálculos de álgebra lineal, matrices de cámaras y transformaciones.
+* **Assimp** - Importación de modelos complejos (`.glb`, `.obj`).
+* **WinMM** - Sistema nativo de Windows utilizado para el motor de audio.
 
-### Navigation Experience
-* **Freedom of Movement:** Users can move in 360 degrees, allowing them to approach the shore of the island, climb to higher elevations, or move away towards the ocean horizon.
-* **Intuitive Control:** Features a "flight" or "walk" control scheme, where the mouse directs the camera view and the keyboard controls movement.
+---
 
-### Implementation: Sea and Island
-* **The Island:**
-  * **Detailed Texturing:** The island utilizes rich textures to differentiate between sand, rock, and vegetation, rather than using solid colors.
-  * **Sense of Scale:** Incorporates reference objects (such as rocks and vegetation) to give users a realistic perception of the island's size relative to their position.
-* **The Sea:**
-  * **Realistic Waves:** The sea features continuous ascending and descending motion, avoiding the appearance of a rigid plane.
-  * **Sun Glare Effect:** Includes specular reflection, simulating the bright trail of light left by the sun on the water's surface.
+## 🚀 Cómo Jugar (Usuario Final)
+Si solo quieres probar el entorno virtual sin tocar código:
+1. Ve a la sección de **Releases** a la derecha de este repositorio.
+2. Descarga el archivo **`RecorridoVirtual_Windows_x64.zip`**.
+3. Extrae el archivo en cualquier carpeta de tu computadora.
+4. Haz doble clic en `NavyEngine.exe` y disfruta del recorrido usando **W, A, S, D** para moverte y el mouse para mirar.
 
-### Atmosphere and Environment (Skybox)
-* **Immersive Horizon:** Replaces plain black or gray backgrounds with a dynamic skybox featuring clouds and a clear horizon line where the sea meets the sky, eliminating any feeling of "emptiness" at the map's boundaries.
-* **Global Illumination:** The entire scene is illuminated by a directional light (simulating the sun) that generates projected shadows from the island's objects onto the terrain, adding significant visual depth.
+---
+
+## 💻 Compilación Local (Para Desarrolladores)
+
+Si deseas descargar el código fuente, modificar los *shaders* o compilarlo por ti mismo:
+
+### Requisitos Previos
+* Windows 10/11.
+* **Visual Studio 2022** con el paquete *"Desarrollo para el escritorio con C++"* instalado.
+* Tarjeta gráfica compatible con OpenGL 4.3 o superior.
+
+### Pasos para Compilar
+1. Clona este repositorio:
+   ```bash
+   https://github.com/VanForeest/NavyEngine.git
+   ```
+2. Abre la carpeta del proyecto y haz doble clic en el archivo **`NavyEngine.sln`** para abrirlo en Visual Studio.
+3. En la barra superior de Visual Studio, asegúrate de que el objetivo de compilación esté en:
+   * **Configuración:** `Release` (o `Debug` si deseas ver logs de errores).
+   * **Plataforma:** `x64`.
+4. Ve al menú **Compilar (Build)** y selecciona **Recompilar Solución (Rebuild Solution)**.
+5. Presiona **F5** (o el botón *Local Windows Debugger*) para lanzar la aplicación.
+
+### Empaquetado Automático
+Dentro de la raíz del repositorio, encontrarás un script llamado **`create_release.ps1`**. Si has realizado cambios y compilado en Release, simplemente abre PowerShell como Administrador en esa carpeta y ejecuta el script. Este programa se encargará de copiar el `.exe`, las `.dll` y todas las carpetas de *assets* para generar un `.zip` limpio y listo para distribuir.
+
+---
+
+## 🕹️ Controles
+* **Movimiento:** W (Adelante), S (Atrás), A (Izquierda), D (Derecha).
+* **Vista:** Mueve el ratón libremente.
+* **Salir:** Presiona la tecla `ESC`.
+
+## 🤝 Créditos
+Desarrollado como proyecto de integración gráfica avanzada.
+* *Implementación de Océano (FFT):* Compute Shaders adaptados al entorno PBR.
+* *Integración y UI:* Arquitectura de cámara, Menús, Audio y Assets.
