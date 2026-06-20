@@ -1,4 +1,4 @@
-﻿#ifndef NOMINMAX
+#ifndef NOMINMAX
 #define NOMINMAX
 #endif
 
@@ -70,8 +70,8 @@ GLFWwindow* window;
 const unsigned int SCR_WIDTH = 1280;
 const unsigned int SCR_HEIGHT = 720;
 
-// camera
-Camera camera(glm::vec3(0.0f, 0.0f, 3.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+// camera (Punto de aparicion en la orilla)
+Camera camera(glm::vec3(1.35682f, 3.5f, 23.3227f), glm::vec3(0.0f, 1.0f, 0.0f));
 float lastX = 1280.0f / 2.0;
 float lastY = 720.0 / 2.0;
 bool firstMouse = true;
@@ -92,7 +92,7 @@ int main()
     InitWindow();
     StartBackgroundMusic();
 
-    camera.MoveSpeed = 15.0f;
+    camera.MoveSpeed = 4.0f;
     auto LastTime = std::chrono::high_resolution_clock::now();
 
     // build and compile shaders
@@ -162,7 +162,6 @@ int main()
     unsigned int creditsHoverTexture = LoadTexture("UI/credit_Hover.png");
 
     //3D models
-    Model masterreyModel("Modelos3D/masterrey.obj");
     Model OceanPlane("Modelos3D/OceanPlane256.obj");
     Model IslandModel("Modelos3D/Island_Final.glb");
 
@@ -387,17 +386,9 @@ int main()
         glActiveTexture(GL_TEXTURE5);
         glBindTexture(GL_TEXTURE_2D, brdfLUTTexture);
 
-        // Render masterrey
+        // Render Island (Restaurado a su ubicacion original)
         model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(0.0f, 0.0f, -12.0f));
-        model = glm::scale(model, glm::vec3(0.5f));
-        TexturedpbrShader.setMat4("model", model);
-        TexturedpbrShader.setMat3("NormalMatrix", glm::transpose(glm::inverse(glm::mat3(model))));
-        masterreyModel.Draw(TexturedpbrShader);
-
-        // Render Island
-        model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(0.0f, 0.0f, 60.0f));
+        model = glm::translate(model, glm::vec3(0.0f, 0.0f, 70.0f)); // <-- AQUI MUEVES LA ISLA EN EL EJE Z
         model = glm::scale(model, glm::vec3(1.0f));
         TexturedpbrShader.setMat4("model", model);
         TexturedpbrShader.setMat3("NormalMatrix", glm::transpose(glm::inverse(glm::mat3(model))));
@@ -476,10 +467,6 @@ void processInput(GLFWwindow* window)
         camera.HandleKeyboard(LEFT, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
         camera.HandleKeyboard(RIGHT, deltaTime);
-    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
-        camera.HandleKeyboard(UP, deltaTime);
-    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
-        camera.HandleKeyboard(DOWN, deltaTime);
 }
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)

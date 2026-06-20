@@ -27,21 +27,31 @@ public:
 
 	float MaxZoom, MinZoom;
 
+	// Limites del recorrido virtual (Bounding Box / Zona segura)
+	float MinX, MaxX, MinZ, MaxZ;
+
 	Camera(glm::vec3 Pos, glm::vec3 WUp) {
 
 		Position = Pos;
 		WorldUp = WUp;
 		Front = glm::vec3(0.0f, 0.0f, -1.0f);
 
-		MoveSpeed = 5.0f;
+		MoveSpeed = 4.0f;
 		Sensibility = 0.1f;
-		Zoom = 45.0f;
+		Zoom = 65.0f;
 
 		Yaw = -90.0f;
 		Pitch = 0.0f;
 
 		MaxZoom = 5.0f;
 		MinZoom = 90.0f;
+
+		// Limites de la orilla (caja de arena)
+		// Centro aproximado: X=1.35, Z=23.32
+		MinX = -40.0f;
+		MaxX =  40.0f;
+		MinZ =  15.2285f; // Evita que camines hacia el mar (Z < 15.2285)
+		MaxZ =  26.9629f; // Evita que subas a la montaña (Z > 26.9629)
 
 		updateCameraVectors();
 	}
@@ -54,18 +64,30 @@ public:
 
 		float velocity = MoveSpeed * deltatime;
 
+		// Vectores proyectados en el plano XZ para caminar sin volar
+		glm::vec3 frontXZ = glm::normalize(glm::vec3(Front.x, 0.0f, Front.z));
+		glm::vec3 rightXZ = glm::normalize(glm::vec3(Right.x, 0.0f, Right.z));
+
 		if (direction == FRONT)
-			Position += Front * velocity;
+			Position += frontXZ * velocity;
 		if (direction == BACK)
-			Position -= Front * velocity;
+			Position -= frontXZ * velocity;
 		if (direction == RIGHT)
-			Position += Right * velocity;
+			Position += rightXZ * velocity;
 		if (direction == LEFT)
-			Position -= Right * velocity;
+			Position -= rightXZ * velocity;
+		
+		// Las teclas Q y E permiten subir/bajar verticalmente para depuracion
 		if (direction == UP)
-			Position += Up * velocity;
+			Position += WorldUp * velocity;
 		if (direction == DOWN)
-			Position -= Up * velocity;
+			Position -= WorldUp * velocity;
+
+		// --- APLICAR LIMITES DE LA ZONA SEGURA (COLLISION FAKE) ---
+		if (Position.x < MinX) Position.x = MinX;
+		if (Position.x > MaxX) Position.x = MaxX;
+		if (Position.z < MinZ) Position.z = MinZ;
+		if (Position.z > MaxZ) Position.z = MaxZ;
 
 	}
 
