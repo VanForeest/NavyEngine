@@ -7,6 +7,10 @@
 
 #include <string>
 #include "Shader.h"
+#include "ComputeShader.h"
+#include "Ocean.h"
+
+const double PI = 3.14159265358979323846;
 
 unsigned int cubeVAO = 0;
 unsigned int cubeVBO = 0;
@@ -426,4 +430,342 @@ void GenIBLmapsFromHDR(const std::string& HDRFile, GLuint& SkyBoxTexture, GLuint
     PrefilterMap = prefilterMap;
     LUTmap = brdfLUTTexture;
 
+}
+
+GLuint GenVoidTexture(GLuint Resolution, GLenum format, GLenum Mfilter){
+    GLuint Texture;
+
+    //Generar la textura
+    glGenTextures(1, &Texture);
+    glBindTexture(GL_TEXTURE_2D, Texture);
+
+    //Se define almacenamiento segun formato
+    glTexStorage2D(GL_TEXTURE_2D, 1, format, Resolution, Resolution);
+
+    //Filtros por defecto (necesitamos muestreo exacto por pixel (Nearest))
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, Mfilter);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, Mfilter);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    return Texture;
+}
+
+void GenGaussianNoiseTexture(GLuint Resolution, GLuint& Texture, ComputeShader& GaussianShader){
+
+    // Activar el Compute Shader
+    GaussianShader.use();
+
+    // Enviar las variables uniformes
+    GaussianShader.setUint("Resolution", Resolution);
+
+    // Generar una semilla aleatoria diferente cada vez
+    float seed = static_cast<float>(rand()) / static_cast<float>(RAND_MAX) * 1000.0f;
+    GaussianShader.setFloat("Seed", seed);
+
+    // Vincular la textura a la unidad de imagen 0 (coincidiendo con binding = 0 en el shader)
+    // El acceso es GL_WRITE_ONLY ya que solo escribiremos en este paso
+    glBindImageTexture(0, Texture, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+
+    // Calcular cuántos grupos de hilos despachar (Resolución / tamaño_local)
+    // Como local_size_x/y es 8, dividimos por 8.
+    GLuint numGroups = (Resolution + 7) / 8;
+
+    // Ejecutar el Compute Shader
+    glDispatchCompute(numGroups, numGroups, 1);
+
+    // Asegurar que la GPU termine de escribir en la textura antes de que la siguiente operacion se ejecute
+    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
+    // Limpieza básica de estados
+    glBindImageTexture(0, 0, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+    glUseProgram(0);
+}
+
+void GenJONSWAPTexture(GLuint Resolution, GLuint& GaussianTexture, GLuint& Texture, ComputeShader& jonswapShader, Ocean& oceano){
+
+    oceano.SendDataToComputeShader();
+
+    jonswapShader.use();
+
+    glBindImageTexture(0, GaussianTexture, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+    glBindImageTexture(1, Texture, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+
+    GLuint numGroups = (Resolution + 15) / 16;
+    glDispatchCompute(numGroups, numGroups, 1);
+    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
+    // Limpieza básica de estados
+    glBindImageTexture(0, 0, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+    glUseProgram(0);
+}
+
+int bitReverse(int x, int bits) {
+    int y = 0;
+    for (int i = 0; i < bits; i++) {
+        y = (y << 1) | (x & 1);
+        x >>= 1;
+    }
+    return y;
+}
+
+struct Complex {
+    float real, imag;
+};
+
+void GenButterflyTextureData(int N, std::vector<float>& textureData) {
+    int numStages = static_cast<int>(std::log2(N));
+
+    // Cada píxel tiene 4 canales (RGBA)
+    textureData.resize(numStages * N * 4);
+
+    for (int stage = 0; stage < numStages; stage++) {
+        // Bloque actual y tamaño del salto
+        int blocks = static_cast<int>(std::pow(2, numStages - 1 - stage));
+        int inputsPerButterfly = static_cast<int>(std::pow(2, stage));
+
+        for (int row = 0; row < N; row++) {
+            // Determinar a qué bloque pertenece esta fila
+            int k = row % (inputsPerButterfly * 2);
+
+            // Calcular el Twiddle Factor (W_N^k)
+            float angle = -2.0f * PI * (row % (inputsPerButterfly * 2)) / (inputsPerButterfly * 2);
+            Complex twiddle = { std::cos(angle), std::sin(angle) };
+
+            int sourceIdx1, sourceIdx2;
+
+            // Primera etapa: reordenamiento por inversión de bits (Bit-reversal)
+            if (stage == 0) {
+                if (k < inputsPerButterfly) {
+                    sourceIdx1 = bitReverse(row, numStages);
+                    sourceIdx2 = bitReverse(row + 1, numStages);
+                }
+                else {
+                    sourceIdx1 = bitReverse(row - 1, numStages);
+                    sourceIdx2 = bitReverse(row, numStages);
+                }
+            }
+            // Etapas posteriores: mariposa estándar
+            else {
+                if (k < inputsPerButterfly) {
+                    sourceIdx1 = row;
+                    sourceIdx2 = row + inputsPerButterfly;
+                }
+                else {
+                    sourceIdx1 = row - inputsPerButterfly;
+                    sourceIdx2 = row;
+                }
+            }
+
+            // Calcular el índice en nuestro array unidimensional (Row-major)
+            int pixelIndex = (row * numStages + stage) * 4;
+
+            // Guardar en formato RGBA
+            textureData[pixelIndex + 0] = twiddle.real;        // R
+            textureData[pixelIndex + 1] = twiddle.imag;        // G
+            textureData[pixelIndex + 2] = static_cast<float>(sourceIdx1); // B
+            textureData[pixelIndex + 3] = static_cast<float>(sourceIdx2); // A
+        }
+    }
+}
+
+GLuint GenButterflyTexture(GLuint Resolution){
+
+    GLuint Texture;
+    int numStages = static_cast<int>(std::log2(Resolution));
+
+    std::vector<float> textureData;
+    GenButterflyTextureData(Resolution, textureData);
+
+    glGenTextures(1, &Texture);
+    glBindTexture(GL_TEXTURE_2D, Texture);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, numStages, Resolution, 0, GL_RGBA, GL_FLOAT, textureData.data());
+
+    // Filtros estrictamente NEAREST
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    return Texture;
+}
+
+void GenTimedJONSWAPTexture(GLuint Resolution, GLuint& JONSWAPTexture, Ocean& oceano, ComputeShader& TimedJONshader, float currentTime, GLuint& DxTexture, GLuint& DyTexture, GLuint& DzTexture, GLuint& SlopeX, GLuint& SlopeZ){
+
+    //1. Activar el shader responsable de calcular el desplazamiento en X, Y, Z. Esto aun esta en el dominio de la frecuencia
+    //Cuidado la usas sin haberle aplicado la IFFT animal, son las 1:45 AM, tengo sueño carajo
+
+    TimedJONshader.use();
+
+    //2. Enviamos lo que sea que este señor use
+    TimedJONshader.setFloat("u_time", currentTime); //Tiempo
+    TimedJONshader.setFloat("u_L_X", oceano.Pams.L); //Longitud del parche del oceano (El tuco de oceano que simulamos pues)
+    TimedJONshader.setFloat("u_L_Z", oceano.Pams.L); //Podria usar otro valor pero lo dejare como un cuadrado de LxL
+    TimedJONshader.setUint("Resolution", Resolution); //Valor en X de la resolucion de la textura
+
+    //3. Activamos las texturas de entrada y salida, respectivamente
+    //ahora me dieron ganas de comentar(sera por lo cansado), soy masterrey por cierto
+
+    glBindImageTexture(0, JONSWAPTexture, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+    glBindImageTexture(1, DxTexture, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RG32F);
+    glBindImageTexture(2, DyTexture, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RG32F);
+    glBindImageTexture(3, DzTexture, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RG32F);
+    glBindImageTexture(4, SlopeX, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RG32F);
+    glBindImageTexture(5, SlopeZ, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RG32F);
+
+    // Calcular cuántos grupos de hilos despachar (Resolución / tamaño_local)
+    // Como local_size_x/y es 16, dividimos por 16.
+    GLuint numGroups = (Resolution + 15) / 16;
+
+    // Ejecutar el Compute Shader
+    glDispatchCompute(numGroups, numGroups, 1);
+
+    // Asegurar que la GPU termine de escribir en la textura antes de que la siguiente operacion se ejecute
+    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
+    // Limpieza básica de estados
+    glBindImageTexture(0, 0, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+    glBindImageTexture(1, 0, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+    glBindImageTexture(2, 0, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+    glBindImageTexture(3, 0, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+    glBindImageTexture(4, 0, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+    glBindImageTexture(5, 0, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+    glUseProgram(0);
+
+}
+
+void ApplyIFFT(int Resolution, ComputeShader& IFFTshader, ComputeShader& Permutationshader, GLuint& ButterflyTexture, GLuint& DnTexture, GLuint& PingPongTexture){
+
+    // Calcular cuántos grupos de hilos despachar (Resolución / tamaño_local)
+    // Como local_size_x/y es 16, dividimos por 16.
+    GLuint numGroups = (Resolution) / 16;
+    int log2Resolution = std::log2(Resolution);
+
+    IFFTshader.use();
+
+    //Mandar uniforms
+    IFFTshader.setInt("u_N", Resolution);
+    IFFTshader.setInt("u_Log2N", log2Resolution);
+
+    //PASE HORIZONTAL (1º etapa del IFFT)
+    IFFTshader.setInt("u_Direction", 0);
+    GLuint currentSource = DnTexture; // Entrada original de frecuencias h0(t) para un eje en especifico
+    GLuint currentDest = PingPongTexture; //Entrada temporal requisito para el algoritmo ButterFly - PingPong
+
+    for (int stage = 0; stage < log2Resolution; stage++){
+        IFFTshader.setInt("u_Stage", stage);
+
+        glBindImageTexture(0, ButterflyTexture, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+        glBindImageTexture(1, currentSource, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RG32F); 
+        glBindImageTexture(2, currentDest, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RG32F);
+
+        glDispatchCompute(numGroups, numGroups, 1);
+        
+        glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
+        std::swap(currentSource, currentDest);
+    }
+
+    
+
+    //PASE VERTICAL (2º etapa del IFFT)
+    IFFTshader.setInt("u_Direction", 1);
+
+    for (int stage = 0; stage < log2Resolution; stage++) {
+        IFFTshader.setInt("u_Stage", stage);
+
+        glBindImageTexture(0, ButterflyTexture, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+        glBindImageTexture(1, currentSource, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RG32F);
+        glBindImageTexture(2, currentDest, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RG32F);
+
+        glDispatchCompute(numGroups, numGroups, 1);
+
+        glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
+        std::swap(currentSource, currentDest);
+    }
+
+    
+    //PASE DE POSTPROCESADO (PERMUTACIÓN Y ESCALADO)
+    
+    Permutationshader.use();
+    Permutationshader.setInt("u_N", Resolution);
+
+    // Entrada: el resultado puro de la IFFT
+    glBindImageTexture(0, currentDest, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RG32F);
+    // Salida: textura final
+    glBindImageTexture(1, currentSource, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+
+    glDispatchCompute(numGroups, numGroups, 1);
+    glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
+    //El resultado final se guarda en currentSource
+
+    //std::swap(currentSource, FinalTexture);
+
+}
+
+void CombineMovementTextures(GLuint Resolution, ComputeShader& CombineTextures, GLuint& MoveX, GLuint& MoveY, GLuint& MoveZ, GLuint& FinalMovementTexture){
+
+    GLuint numGroups = Resolution / 16;
+
+    CombineTextures.use();
+
+    CombineTextures.setUint("Resolution", Resolution);
+
+    glBindImageTexture(0, MoveX, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RG32F);
+    glBindImageTexture(1, MoveY, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RG32F);
+    glBindImageTexture(2, MoveZ, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RG32F);
+    glBindImageTexture(3, FinalMovementTexture, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+
+    // Ejecutar el Compute Shader
+    glDispatchCompute(numGroups, numGroups, 1);
+
+    // Asegurar que la GPU termine de escribir en la textura antes de que la siguiente operacion se ejecute
+    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
+    // Limpieza básica de estados
+    glBindImageTexture(0, 0, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+    glBindImageTexture(1, 0, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+    glBindImageTexture(2, 0, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+    glBindImageTexture(3, 0, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+    glUseProgram(0);
+}
+
+void GenNormal_FoamTextures(GLuint Resolution, ComputeShader& OceanN_Fshader, float GridSpace, float J_umbral, GLuint& MoveTexture, GLuint& SlopeX, GLuint& SlopeZ, GLuint& NormalMap, GLuint& FoamMap){
+    
+    GLuint numGroups = (Resolution + 15) / 16;
+
+    OceanN_Fshader.use();
+
+    OceanN_Fshader.setFloat("u_GridSpacing", GridSpace);
+    OceanN_Fshader.setFloat("u_FoamThreshold", J_umbral);
+
+    glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, MoveTexture);
+    glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_2D, SlopeX);
+    glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_2D, SlopeZ);
+
+    glBindImageTexture(3, NormalMap, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+    glBindImageTexture(4, FoamMap, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F);
+
+    // Ejecutar el Compute Shader
+    glDispatchCompute(numGroups, numGroups, 1);
+
+    // Asegurar que la GPU termine de escribir en la textura antes de que la siguiente operacion se ejecute
+    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
+    // Limpieza básica de estados
+    glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, 0);
+    glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_2D, 0);
+    glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_2D, 0);
+    glBindImageTexture(3, 0, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+    glBindImageTexture(4, 0, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+    glUseProgram(0);
 }

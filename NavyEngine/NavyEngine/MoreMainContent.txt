@@ -1,0 +1,54 @@
+Shader pbrShader("PBR.vs", "PBR.fs");
+Shader TexturedpbrShader("PBR.vs", "TexturedPBR.fs");
+
+pbrShader.use();
+    pbrShader.setInt("irradianceMap", 0);
+    pbrShader.setInt("prefilterMap", 1);
+    pbrShader.setInt("brdfLUT", 2);
+    pbrShader.setVec3("albedo", 0.01, 0.05, 0.1);
+    pbrShader.setFloat("roughness", 0.03);
+    pbrShader.setFloat("metallic", 0.0);
+    pbrShader.setFloat("ao", 1.0f);
+    pbrShader.setVec3("FF0", glm::vec3(0.04f));
+
+TexturedpbrShader.use();
+    TexturedpbrShader.setInt("texture_BaseColor1", 0);
+    TexturedpbrShader.setInt("texture_Normal1", 1);
+    TexturedpbrShader.setInt("texture_ORM1", 2);
+    TexturedpbrShader.setInt("irradianceMap", 3);
+    TexturedpbrShader.setInt("prefilterMap", 4);
+    TexturedpbrShader.setInt("brdfLUT", 5);
+
+Shader OceanShader("Ocean.vs","PBR.fs");
+
+OceanShader.use();
+    OceanShader.setInt("irradianceMap", 0);
+    OceanShader.setInt("prefilterMap", 1);
+    OceanShader.setInt("brdfLUT", 2);
+    OceanShader.setVec3("albedo", 0.02, 0.08, 0.12); //1) 0.01, 0.05, 0.1  2) 0.02, 0.08, 0.12 3) 0.01, 0.05, 0.09
+    OceanShader.setFloat("roughness", 0.03); //0.03 //0.12
+    OceanShader.setFloat("metallic", 0.0);
+    OceanShader.setFloat("ao", 1.0f);
+    OceanShader.setVec3("FF0", glm::vec3(0.02f));
+
+    OceanShader.setFloat("Amplitude", 1.0);
+    OceanShader.setFloat("wavelenght", 4.0);
+    OceanShader.setFloat("speed", 2.0);
+
+ pbrShader.use();
+    pbrShader.setMat4("projection", projection);
+
+TexturedpbrShader.use();
+    TexturedpbrShader.setMat4("projection", projection);
+    OceanShader.use();
+    OceanShader.setMat4("projection", projection);
+
+//Lights
+    /*DirectLight Dirlight(glm::vec3(0.0f), glm::vec3(0.0f, -1.0f, 3.0f));
+
+    PointLight light1(glm::vec3(100.0f), glm::vec3(-10.0f, 10.0f, 10.0f), 10.0f);
+    PointLight light2(glm::vec3(150.0f), glm::vec3(10.0f, 10.0f, 10.0f), 15.0f);
+    PointLight light3(glm::vec3(200.0f), glm::vec3(-10.0f, -10.0f, 10.0f), 20.0f);
+    PointLight light4(glm::vec3(250.0f), glm::vec3(10.0f, -10.0f, 10.0f), 25.0f);
+
+    std::vector<PointLight> Lights{ light1, light2, light3, light4 };*/

@@ -5,11 +5,14 @@
 #include <glm.hpp>
 #include <gtc/matrix_transform.hpp>
 #include <gtc/type_ptr.hpp>
+#include <chrono>
 
 #include "Utilities.h"
 #include "Shader.h"
+#include "ComputeShader.h"
 #include "Camera.h"
 #include "Model.h"
+#include "Ocean.h"
 #include "DirectLight.h"
 #include "PointLight.h"
 
@@ -23,141 +26,195 @@ void InitWindow();
 
 // settings
 GLFWwindow* window;
-const unsigned int SCR_WIDTH = 1280;
-const unsigned int SCR_HEIGHT = 720;
+const unsigned int SCR_WIDTH = 1000;
+const unsigned int SCR_HEIGHT = 600;
 
 // camera
 Camera camera(glm::vec3(0.0f, 0.0f, 3.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-float lastX = 1280.0f / 2.0;
-float lastY = 720.0 / 2.0;
+float lastX = SCR_WIDTH / 2.0;
+float lastY = SCR_HEIGHT / 2.0;
 bool firstMouse = true;
 
 // timing
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
+float SimTime = 0.0f;
+float SeaSpeed = 1.0f;
 
 int main()
 {
     InitWindow();
 
-    camera.MoveSpeed = 15.0f;
+    camera.MoveSpeed = 20.0f;
+    auto LastTime = std::chrono::high_resolution_clock::now();
 
     // build and compile shaders
-    // -------------------------
-    Shader pbrShader("PBR.vs", "PBR.fs");
-    Shader TexturedpbrShader("PBR.vs", "TexturedPBR.fs");
+    Shader FinalOcean("FinalOcean.vs", "NewFinalOcean.fs");
+    FinalOcean.use();
+    FinalOcean.setVec3("u_WaterColor", glm::vec3(0.01, 0.05, 0.09));
+    //Color1 0.02, 0.08, 0.12
+    //Color2 0.01, 0.05, 0.1
+    //Color3 0.01, 0.05, 0.09
+    FinalOcean.setVec3("u_FoamColor", glm::vec3(0.9, 0.9, 0.9));
+    FinalOcean.setVec3("u_FF0", glm::vec3(0.02f));
+    FinalOcean.setFloat("BaseRo", 0.05); //0.05
+    FinalOcean.setFloat("FoamRo", 0.9);
+    FinalOcean.setFloat("u_metallic", 0.0);
+    FinalOcean.setFloat("u_ao", 1.0);
+
     Shader backgroundShader("SkyBox.vs", "SkyBox.fs");
-    Shader OceanShader("Ocean.vs","PBR.fs");
-
-    pbrShader.use();
-    pbrShader.setInt("irradianceMap", 0);
-    pbrShader.setInt("prefilterMap", 1);
-    pbrShader.setInt("brdfLUT", 2);
-    pbrShader.setVec3("albedo", 0.01, 0.05, 0.1);
-    pbrShader.setFloat("roughness", 0.03);
-    pbrShader.setFloat("metallic", 0.0);
-    pbrShader.setFloat("ao", 1.0f);
-    pbrShader.setVec3("FF0", glm::vec3(0.02f));
-
     backgroundShader.use();
     backgroundShader.setInt("SkyBoxMap", 0);
 
-    TexturedpbrShader.use();
-    TexturedpbrShader.setInt("texture_BaseColor1", 0);
-    TexturedpbrShader.setInt("texture_Normal1", 1);
-    TexturedpbrShader.setInt("texture_ORM1", 2);
-    TexturedpbrShader.setInt("irradianceMap", 3);
-    TexturedpbrShader.setInt("prefilterMap", 4);
-    TexturedpbrShader.setInt("brdfLUT", 5);
+    Shader TestShader("TestTexture.vs", "TestTexture.fs");
 
-    OceanShader.use();
-    OceanShader.setInt("irradianceMap", 0);
-    OceanShader.setInt("prefilterMap", 1);
-    OceanShader.setInt("brdfLUT", 2);
-    OceanShader.setVec3("albedo", 0.02, 0.08, 0.12); //1) 0.01, 0.05, 0.1  2) 0.02, 0.08, 0.12 3) 0.01, 0.05, 0.09
-    OceanShader.setFloat("roughness", 0.03); //0.03 //0.12
-    OceanShader.setFloat("metallic", 0.0);
-    OceanShader.setFloat("ao", 1.0f);
-    OceanShader.setVec3("FF0", glm::vec3(0.02f));
+    ComputeShader GaussianShader("GaussianNoise.glsl");
+    ComputeShader JONSWAPshader("JONSWAP.glsl");
+    ComputeShader TimedJONSWAPshader("TimedJONSWAP.glsl");
+    ComputeShader IFFTshader("IFFT.glsl");
+    ComputeShader Permutationshader("Permutation.glsl");
+    ComputeShader CombineTexshader("CombineTexture.glsl");
+    ComputeShader OceanNormalFoamshader("OceanNormal_Foam.glsl");
 
-    OceanShader.setFloat("Amplitude", 1.0);
-    OceanShader.setFloat("wavelenght", 4.0);
-    OceanShader.setFloat("speed", 2.0);
     
-
+  
+    
     //3D model
-    Model masterreyModel("Modelos3D/masterrey.obj");
-    Model OceanPlane("Modelos3D/OceanPlane3.obj");
+    //Model masterreyModel("Modelos3D/masterrey.obj");
+    Model OceanPlane("Modelos3D/OceanPlane256.obj");
     
-
-
-    //Lights
-    DirectLight Dirlight(glm::vec3(0.0f), glm::vec3(0.0f, -1.0f, 3.0f));
-
-    PointLight light1(glm::vec3(100.0f), glm::vec3(-10.0f, 10.0f, 10.0f), 10.0f);
-    PointLight light2(glm::vec3(150.0f), glm::vec3(10.0f, 10.0f, 10.0f), 15.0f);
-    PointLight light3(glm::vec3(200.0f), glm::vec3(-10.0f, -10.0f, 10.0f), 20.0f);
-    PointLight light4(glm::vec3(250.0f), glm::vec3(10.0f, -10.0f, 10.0f), 25.0f);
-
-    std::vector<PointLight> Lights{ light1, light2, light3, light4 };
-
-    int nrRows = 7;
-    int nrColumns = 7;
-    float spacing = 2.5;
+    DirectLight Dirlight(glm::vec3(15.0f), glm::vec3(0.0f, -1.0f, 0.0f));
 
     //Get IBL maps from HDRi file
     const std::string HDRfile = "HDR/LowSky.hdr";
     GLuint envCubemap, irradianceMap, prefilterMap, brdfLUTTexture;
     GenIBLmapsFromHDR(HDRfile, envCubemap, irradianceMap, prefilterMap, brdfLUTTexture);
 
-
-    //Valores estaticos
-    glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 150.0f);
-    pbrShader.use();
-    pbrShader.setMat4("projection", projection);
-    backgroundShader.use();
-    backgroundShader.setMat4("projection", projection);
-    TexturedpbrShader.use();
-    TexturedpbrShader.setMat4("projection", projection);
-    OceanShader.use();
-    OceanShader.setMat4("projection", projection);
-
-    //Regresamos al viewport a su resolucion original
+    //Regresamos al viewport a su resolucion original , Limpieza necesaria despues de recolectar los IBL maps
     int scrWidth, scrHeight;
     glfwGetFramebufferSize(window, &scrWidth, &scrHeight);
     glViewport(0, 0, scrWidth, scrHeight);
 
+
+    //Otras instancias importantes
+    float NormalSpace = 1.0f;
+    float J_Umbral = 0.9; //Valor 1: 0.8 ; Valor 2: 0.85
+    SeaSpeed = 0.8f;
+    Ocean Oceano1;
+    Oceano1.SetParameters(glm::vec2(0.1f, 0.0f), 10.5f, 1000000.0f, 9.81f, 2.0f, 1200.0f, 0.004, 256); //normal
+    //Oceano1.SetParameters(glm::vec2(0.707f, 0.707f), 25.0f, 300000.0f, 9.81f, 1.5f, 2000.0f, 0.0015, 512); //Tormenta
+
+    //Generar Texturas base 
+    //Para Cualquiera menos NormalMap y FoamMap:GL_NEAREST
+    //Para NormalMap y FoamMap: GL_LINEAR
+    GLuint NoiseTexture = GenVoidTexture(Oceano1.Pams.N, GL_RGBA32F, GL_NEAREST);
+    GLuint JonTexture = GenVoidTexture(Oceano1.Pams.N, GL_RGBA32F, GL_NEAREST);
+    GLuint ButterflyTexture = GenButterflyTexture(Oceano1.Pams.N);
+
+    GLuint DxTexture = GenVoidTexture(Oceano1.Pams.N, GL_RG32F, GL_NEAREST); //Movimiento en X
+    GLuint DyTexture = GenVoidTexture(Oceano1.Pams.N, GL_RG32F, GL_NEAREST); //Movimiento en Y
+    GLuint DzTexture = GenVoidTexture(Oceano1.Pams.N, GL_RG32F, GL_NEAREST); //Movimiento en Z
+    GLuint SlopeX = GenVoidTexture(Oceano1.Pams.N, GL_RG32F, GL_NEAREST); //Contiene los valores de Dy / Dx
+    GLuint SlopeZ = GenVoidTexture(Oceano1.Pams.N, GL_RG32F, GL_NEAREST); //Contiene los valores de Dy / Dz
+
+    GLuint PingPongTexture = GenVoidTexture(Oceano1.Pams.N, GL_RG32F, GL_NEAREST);
+    GLuint MoveTexture = GenVoidTexture(Oceano1.Pams.N, GL_RGBA32F, GL_NEAREST);
+    GLuint NormalMap = GenVoidTexture(Oceano1.Pams.N, GL_RGBA32F, GL_LINEAR);
+    GLuint FoamMap = GenVoidTexture(Oceano1.Pams.N, GL_R32F, GL_LINEAR);
+
+
+    //Hacemos una nueva textura GaussianNoise
+    GenGaussianNoiseTexture(Oceano1.Pams.N, NoiseTexture, GaussianShader);
+
+    //Calculamos el estado inicial del espectro JONSWAP
+    GenJONSWAPTexture(Oceano1.Pams.N, NoiseTexture, JonTexture, JONSWAPshader, Oceano1);
+
+    //Valores estaticos
+    glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 250.0f);
+
+    FinalOcean.use();
+    FinalOcean.setMat4("projection", projection);
+
+    backgroundShader.use();
+    backgroundShader.setMat4("projection", projection);
+    
+
+
     //RENDER LOOP
     while (!glfwWindowShouldClose(window)){
 
-        // Logica del tiempo per-frame 
-        float currentFrame = static_cast<float>(glfwGetTime());
-        deltaTime = currentFrame - lastFrame;
-        lastFrame = currentFrame;
+        // Logica del tiempo per-frame
+        auto CurrentTime = std::chrono::high_resolution_clock::now();
+        deltaTime = std::chrono::duration<float>(CurrentTime - LastTime).count();
+        LastTime = CurrentTime;
+
+        // Evitar saltos gigantes si se congela un milisegundo
+        if (deltaTime > 0.1f) deltaTime = 0.1f;
+
+        SimTime += deltaTime * SeaSpeed;
 
         //input
         processInput(window);
 
-        //render
+        //Texturas per-frame
+        
+        //NOTA IMPORTANTISIMA
+        //Te hablo a vos masterrey del futuro o cualquiera que este traveseando el codigo
+        //si queres probar las texturas JonTexture, DnTexture, Slopes (Modo view1)
+        //si queres probar las texturas de MovementTextureN y Normalmap (Modo view2)
+     
+        //Modo view1: Desactivar el amplitudScale, Activar  shift_coord en JONSWAP.glsl
+        // Activar FragColor = NewTexture; en TestTexture.fs
+        
+        //Modo view2: Activar amplitudScale, Desactivar shift_coord en JONSWAP.glsl
+        //Activar FragColor = vec4(vec3(NewTexture.r), 1.0) para MovementTextureN
+        // Activar FragColor = NewTexture; para NormalMap o MovementMap
+        
+        //Modo actual: view2
+
+        //NOTA IMPORTANTISIMA 2
+        //La simulacion del mar solo funciona si se esta en modo view2, esto porque los calculos requeridos
+        //para la correcta simulacion del mar se dan en dicho patron de vista
+
+        //Movimiento X, Y, Z, dominio frecuencia / TimedJONSWAP
+        GenTimedJONSWAPTexture(Oceano1.Pams.N, JonTexture, Oceano1, TimedJONSWAPshader, SimTime, DxTexture, DyTexture, DzTexture, SlopeX, SlopeZ);
+
+        //Texturas de Movimiento X, Y, Z, Dominio del Tiempo / IFFT
+        ApplyIFFT(Oceano1.Pams.N, IFFTshader, Permutationshader, ButterflyTexture, DxTexture, PingPongTexture);
+        ApplyIFFT(Oceano1.Pams.N, IFFTshader, Permutationshader, ButterflyTexture, DyTexture, PingPongTexture);
+        ApplyIFFT(Oceano1.Pams.N, IFFTshader, Permutationshader, ButterflyTexture, DzTexture, PingPongTexture);
+        ApplyIFFT(Oceano1.Pams.N, IFFTshader, Permutationshader, ButterflyTexture, SlopeX, PingPongTexture);
+        ApplyIFFT(Oceano1.Pams.N, IFFTshader, Permutationshader, ButterflyTexture, SlopeZ, PingPongTexture);
+
+        //Combinar Texturas de movimiento
+        CombineMovementTextures(Oceano1.Pams.N, CombineTexshader, DxTexture, DyTexture, DzTexture, MoveTexture);
+
+        //Generar normal map y foam map
+        GenNormal_FoamTextures(Oceano1.Pams.N, OceanNormalFoamshader, NormalSpace, J_Umbral, MoveTexture, SlopeX, SlopeZ, NormalMap, FoamMap);
+
+
+
+        //Render
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
- 
+
+        glm::mat4 view = camera.GetViewMatrix();
         glm::mat4 model = glm::mat4(1.0f);
 
+        
 
-        //SHADER DEL PBR CON TEXTURA
-        TexturedpbrShader.use();
-        glm::mat4 view = camera.GetViewMatrix();
-        TexturedpbrShader.setMat4("view", view);
-        TexturedpbrShader.setVec3("camPos", camera.Position);
+        //Renderizar el mar
+        FinalOcean.use();
+        FinalOcean.setMat4("view", view);
+        FinalOcean.setVec3("camPos", camera.Position);
 
-        Dirlight.SendDataToShader(TexturedpbrShader, "dirlight");
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, MoveTexture);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, NormalMap);
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, FoamMap);
 
-        /*for (unsigned int i = 0; i < 4; ++i) {
-            Lights[i].SendDataIndexToShader(TestpbrShader, "polight", i);
-        }*/
-
-        // bind pre-computed IBL data
         glActiveTexture(GL_TEXTURE3);
         glBindTexture(GL_TEXTURE_CUBE_MAP, irradianceMap);
         glActiveTexture(GL_TEXTURE4);
@@ -165,76 +222,15 @@ int main()
         glActiveTexture(GL_TEXTURE5);
         glBindTexture(GL_TEXTURE_2D, brdfLUTTexture);
 
-        //Render masterrey
-        model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(0.0f, 0.0f, -12.0f));
-        model = glm::scale(model, glm::vec3(0.5f));
-        TexturedpbrShader.setMat4("model", model);
-        TexturedpbrShader.setMat3("NormalMatrix", glm::transpose(glm::inverse(glm::mat3(model))));
+        Dirlight.SendDataToShader(FinalOcean, "dirlight");
 
-        TexturedpbrShader.setBool("hasBaseColorMap", masterreyModel.hasBaseColorMap);
-        TexturedpbrShader.setBool("hasNormalMap", masterreyModel.hasNormalMap);
-        TexturedpbrShader.setBool("hasORM", masterreyModel.hasORM);
-
-        masterreyModel.Draw(TexturedpbrShader);
-
-        //USAMOS EL OCEAN SHADER
-        OceanShader.use();
-        OceanShader.setMat4("view", view);
-        OceanShader.setVec3("camPos", camera.Position);
-
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_CUBE_MAP, irradianceMap);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_CUBE_MAP, prefilterMap);
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, brdfLUTTexture);
-
-        //Render Ocean Plane
         model = glm::mat4(1.0f);
         model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
-        //model = glm::scale(model, glm::vec3(2.0f));
-        OceanShader.setFloat("time", currentFrame);
-        OceanShader.setMat4("model", model);
-        OceanShader.setMat3("NormalMatrix", glm::transpose(glm::inverse(glm::mat3(model))));
 
-        OceanPlane.Draw(OceanShader);
+        FinalOcean.setMat4("model", model);
+        FinalOcean.setMat3("NormalMatrix", glm::transpose(glm::inverse(glm::mat3(model))));
 
-
-        //USAMOR EL SHADER DEL PBR SIN TEXTURA
-        /*pbrShader.use();
-        pbrShader.setMat4("view", view);
-        pbrShader.setVec3("camPos", camera.Position);
-
-        Dirlight.SendDataToShader(pbrShader, "dirlight");
-
-        // bind pre-computed IBL data
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_CUBE_MAP, irradianceMap);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_CUBE_MAP, prefilterMap);
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, brdfLUTTexture);
-
-        //Render las columnas de esferas para la prueba de 
-        for (int row = 0; row < nrRows; ++row)
-        {
-            pbrShader.setFloat("metallic", (float)row / (float)nrRows);
-            for (int col = 0; col < nrColumns; ++col)
-            {
-                pbrShader.setFloat("roughness", glm::clamp((float)col / (float)nrColumns, 0.05f, 1.0f));
-
-                model = glm::mat4(1.0f);
-                model = glm::translate(model, glm::vec3(
-                    (float)(col - (nrColumns / 2)) * spacing,
-                    (float)(row - (nrRows / 2)) * spacing,
-                    -2.0f
-                ));
-                pbrShader.setMat4("model", model);
-                pbrShader.setMat3("NormalMatrix", glm::transpose(glm::inverse(glm::mat3(model))));
-                renderSphere();
-            }
-        }*/
+        OceanPlane.Draw(FinalOcean);
 
 
         //render skybox
@@ -246,6 +242,15 @@ int main()
         //glBindTexture(GL_TEXTURE_CUBE_MAP, prefilterMap); // display prefilter map
         renderCube();
 
+
+        //RECORDAR PONER AQUI EL CONTENIDO DE InsideMain.txt
+        //Zona de prueba para las texturas generadas por los Compute Shader
+        TestShader.use();
+        TestShader.setInt("Texture", 0);
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, MoveTexture);
+        //renderQuad();
 
         glfwSwapBuffers(window);
         glfwPollEvents();
@@ -314,7 +319,7 @@ void InitWindow(){
 
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_SAMPLES, 4);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
@@ -330,6 +335,7 @@ void InitWindow(){
 
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
+    glewExperimental = GL_TRUE;
     if (glewInit() != GLEW_OK) {
         std::cout << "Error al iniciar Glew" << std::endl;
     }
@@ -338,5 +344,7 @@ void InitWindow(){
     glEnable(GL_DEPTH_TEST); 
     glDepthFunc(GL_LEQUAL); //Activado para el skybox
     glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS); //Activado para el multiple mip map sampling para los prefilters
+
+    std::cout << "Version de OpenGL en uso: " << glGetString(GL_VERSION) << std::endl;
 }
 
