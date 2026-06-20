@@ -23,6 +23,7 @@ bld/
 *.iobj
 *.ipdb
 *.ipch
+*.glb
 
 # Binarios generados
 *.exe
