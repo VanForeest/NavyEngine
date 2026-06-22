@@ -1,25 +1,25 @@
 <div align="center">
-  <h1>🏝️ NavyEngine: Interactive Virtual Tour</h1>
+  <h1>NavyEngine: Interactive Virtual Tour</h1>
   <p><strong>A custom C++ graphics engine built from scratch with OpenGL to simulate hyper-realistic landscapes.</strong></p>
-  <p>🌎 <a href="README.md">Leer en Español</a></p>
+  <p><a href="README.md">Leer en Español</a></p>
   <br>
-  <p>🎥 <strong><a href="https://youtu.be/yxzT-5iLvpk">Watch the Project DEMO Video on YouTube</a></strong></p>
+  <p><strong><a href="https://youtu.be/yxzT-5iLvpk">Watch the Project DEMO Video on YouTube</a></strong></p>
 </div>
 
 ---
 
-## 📖 About the Project
+## About the Project
 **NavyEngine** is an advanced graphics application developed in C++ that provides an immersive first-person environment. The user can walk and explore the coastline of a detailed island while observing a physically simulated ocean. The main goal of this project is to demonstrate the integration capabilities of complex mathematics (FFT), rendering physics (PBR), and multimedia resource management in pure OpenGL, without relying on commercial engines like Unity or Unreal.
 
-## 🌟 Key Features
+## Key Features
 
-* 🌊 **Realistic Ocean Simulation (FFT):** The water is not a flat texture; it is generated in real-time by evaluating the JONSWAP Spectrum and the Fast Fourier Transform via **Compute Shaders** in OpenGL 4.3+, simulating authentic wave physics.
-* 🏝️ **Physically Based Rendering (PBR & IBL):** High-quality 3D models illuminated using an environmental map (Skybox) and Image-Based Lighting, ensuring materials like sand and stone react to light in a photorealistic manner.
-* 🚶 **"Walking Simulator" Camera:** Immersive first-person (FPS) control system restricted to the horizontal plane and contained by an invisible *Bounding Box* system to prevent moving out of the island boundaries.
-* 🎵 **Immersive Environmental Audio:** Natively integrated multi-threaded sound engine that plays looping ocean waves and breeze to maximize immersion.
-* 🖥️ **Native User Interface (UI):** Main and interactive menu rendered entirely using textured quads over the main framebuffer.
+* **Realistic Ocean Simulation (FFT):** The water is not a flat texture; it is generated in real-time by evaluating the JONSWAP Spectrum and the Fast Fourier Transform via **Compute Shaders** in OpenGL 4.3+, simulating authentic wave physics.
+* **Physically Based Rendering (PBR & IBL):** High-quality 3D models illuminated using an environmental map (Skybox) and Image-Based Lighting, ensuring materials like sand and stone react to light in a photorealistic manner.
+* **"Walking Simulator" Camera:** Immersive first-person (FPS) control system restricted to the horizontal plane and contained by an invisible *Bounding Box* system to prevent moving out of the island boundaries.
+* **Immersive Environmental Audio:** Natively integrated multi-threaded sound engine that plays looping ocean waves and breeze to maximize immersion.
+* **Native User Interface (UI):** Main and interactive menu rendered entirely using textured quads over the main framebuffer.
 
-## 🛠️ Technologies and Libraries Used
+## Technologies and Libraries Used
 * **C++17** - Main language.
 * **OpenGL 4.3+** - Graphics API (essential for ocean Compute Shaders).
 * **GLFW / GLEW** - Window management, hardware events, and GL extensions.
@@ -29,7 +29,7 @@
 
 ---
 
-## 🚀 How to Play (End User)
+## How to Play (End User)
 If you just want to try the virtual environment without touching any code:
 1. Go to the **Releases** section on the right side of this repository.
 2. Download the file **`RecorridoVirtual_Windows_x64.zip`**.
@@ -38,11 +38,11 @@ If you just want to try the virtual environment without touching any code:
 
 ---
 
-## 💻 Local Compilation (For Developers)
+## Local Compilation (For Developers)
 
 If you want to download the source code, modify the *shaders*, or compile it yourself:
 
-### ⚠️ Important: 3D Models and Heavy Assets
+### Important: 3D Models and Heavy Assets
 To keep the repository clean and fast, heavy 3D models (`.glb`, `.obj`) are not included in the GitHub source code.
 To compile and run the project locally without it crashing when loading models, you must:
 1. Go to the **Releases** tab of this repository.
@@ -72,12 +72,12 @@ Inside the root of the repository, you will find a script named **`create_releas
 
 ---
 
-## 🕹️ Controls
+## Controls
 * **Movement:** W (Forward), S (Backward), A (Left), D (Right).
 * **View:** Move the mouse freely.
 * **Exit:** Press the `ESC` key.
 
-## 🤝 Credits
+## Credits
 Developed as an advanced graphical integration project.
 * *Ocean Implementation (FFT):* Compute Shaders adapted to the PBR environment.
 * *Integration and UI:* Camera architecture, Menus, Audio, and Assets.
