@@ -2,6 +2,8 @@
   <h1>🏝️ NavyEngine: Interactive Virtual Tour</h1>
   <p><strong>A custom C++ graphics engine built from scratch with OpenGL to simulate hyper-realistic landscapes.</strong></p>
   <p>🌎 <a href="README.md">Leer en Español</a></p>
+  <br>
+  <p>🎥 <strong><a href="https://youtu.be/yxzT-5iLvpk">Watch the Project DEMO Video on YouTube</a></strong></p>
 </div>
 
 ---
